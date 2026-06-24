@@ -18,5 +18,5 @@ An intelligent Applicant Tracking System (ATS) and resume analyzer built with **
 
 1. **Clone the repository**
    ```bash
-   git clone [https://github.com/yourusername/AI-Resume-Analyzer.git](https://github.com/yourusername/AI-Resume-Analyzer.git)
+   git clone [https://github.com/RishanthDeveloper/AI-Resume-Analyzer.git](https://github.com/RishanthDeveloper/AI-Resume-Analyzer.git)
    cd AI-Resume-Analyzer
