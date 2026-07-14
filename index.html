@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Resume Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-[#0B0C0E] text-slate-100 min-h-screen">
+
+  <!-- Top bar -->
+  <nav class="border-b border-white/5">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          📄
+        </div>
+        <span class="font-semibold text-white">ResumeAnalyzer</span>
+        <span class="ml-1 text-[11px] rounded-full border border-emerald-500/30 text-emerald-400 px-2.5 py-1">
+          ✨ AI-Powered
+        </span>
+      </div>
+      <div class="flex items-center gap-6 text-sm">
+        <a href="#" class="text-slate-300 hover:text-white transition">📄 Analyzer</a>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer"
+          class="text-emerald-400 hover:text-emerald-300 transition">✨ Get API Key</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-6 py-10">
+
+    <!-- Hero -->
+    <header class="text-center mb-10">
+      <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-white">AI Resume Analyzer</h1>
+      <p class="text-sm text-slate-400 mt-3 max-w-2xl mx-auto">
+        Get an ATS compatibility score, keyword gap analysis, and targeted improvements —
+        tailored to any job description, in seconds.
+      </p>
+      <div class="flex flex-wrap justify-center gap-2 mt-5">
+        <span class="pill">🟢 ATS Match Score</span>
+        <span class="pill">🔍 Keyword Gap Analysis</span>
+        <span class="pill">👤 AI Profile Summary</span>
+        <span class="pill">⚡ Actionable Improvements</span>
+      </div>
+    </header>
+
+    <!-- Three-column grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <!-- Column 1: Configuration -->
+      <section class="card p-5 flex flex-col">
+        <div class="flex items-center gap-2.5 mb-1">
+          <span class="icon-badge icon-badge--emerald">🔑</span>
+          <div>
+            <h3 class="text-sm font-semibold text-white">Configuration</h3>
+            <p class="text-xs text-slate-400">Gemini API setup</p>
+          </div>
+        </div>
+
+        <label class="block text-[11px] font-medium tracking-wide text-slate-400 mt-4 mb-1.5">
+          GOOGLE GEMINI API KEY <span class="text-rose-400">*</span>
+        </label>
+        <div class="input-shell flex items-center gap-2">
+          <input id="apiKeyInput" type="password" placeholder="AIzaSy..."
+            class="bg-transparent w-full text-sm text-slate-100 placeholder:text-slate-600 outline-none" />
+          <button id="toggleVisibility" type="button" class="text-slate-500 hover:text-slate-300 transition" aria-label="Toggle key visibility">👁</button>
+        </div>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer"
+          class="text-xs text-cyan-400 hover:text-cyan-300 transition inline-block mt-2">
+          🔗 Get a free API key from Google AI Studio
+        </a>
+
+        <div class="mt-4 rounded-xl border border-emerald-500/15 bg-emerald-500/[0.06] p-3 flex items-start gap-2">
+          <span class="text-emerald-400 mt-0.5">✓</span>
+          <p class="text-[11px] leading-relaxed text-slate-400">
+            <span class="text-emerald-300 font-medium">Secure & private.</span>
+            Your key is sent directly to the backend per-request and forwarded to Google's
+            servers. It is never stored or logged.
+          </p>
+        </div>
+
+        <div class="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-500">
+          <span class="rounded-full bg-white/5 px-2 py-1 font-mono text-slate-300">gemini-2.5-flash</span>
+          <span>Google AI</span>
+          <span class="text-emerald-400">Free tier: Available</span>
+        </div>
+      </section>
+
+      <!-- Column 2: Job Description -->
+      <section class="card p-5 flex flex-col">
+        <div class="flex items-start justify-between mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="icon-badge icon-badge--cyan">📘</span>
+            <div>
+              <h3 class="text-sm font-semibold text-white">1. Target Job Description</h3>
+              <p class="text-xs text-slate-400">Paste the full JD from the job posting</p>
+            </div>
+          </div>
+          <button id="loadExampleBtn" type="button"
+            class="text-[11px] rounded-full border border-white/10 px-2.5 py-1 text-slate-300 hover:border-emerald-400/40 hover:text-emerald-300 transition shrink-0">
+            Load example
+          </button>
+        </div>
+
+        <div class="input-shell flex-1">
+          <textarea id="jdInput" placeholder="Paste the responsibilities, requirements, and tech stack from the posting..."
+            class="bg-transparent w-full h-full min-h-[160px] text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none custom-scrollbar"></textarea>
+        </div>
+        <div id="jdCharCount" class="text-right text-[11px] text-slate-500 mt-1.5">0 chars</div>
+
+        <div class="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.05] p-3 flex items-start gap-2">
+          <span class="mt-0.5">💡</span>
+          <p class="text-[11px] leading-relaxed text-slate-400">
+            Include the full JD for best results — requirements, responsibilities, and tech stack.
+          </p>
+        </div>
+      </section>
+
+      <!-- Column 3: Upload Resume -->
+      <section class="card p-5 flex flex-col">
+        <div class="flex items-center gap-2.5 mb-4">
+          <span class="icon-badge icon-badge--emerald">⬆️</span>
+          <div>
+            <h3 class="text-sm font-semibold text-white">2. Upload Resume</h3>
+            <p class="text-xs text-slate-400">PDF format only, max 10MB</p>
+          </div>
+        </div>
+
+        <div id="dropzone" class="dropzone flex-1 flex flex-col items-center justify-center gap-3 text-center">
+          <div class="dropzone-icon">🗂️</div>
+          <p id="dropzoneText" class="text-sm text-slate-300">
+            Drag &amp; drop your resume or <button id="browseBtn" type="button" class="text-emerald-400 underline underline-offset-2 hover:text-emerald-300 font-medium">browse files</button>
+          </p>
+          <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-slate-400">📄 PDF only • Max 10MB</span>
+          <input id="fileInput" type="file" accept="application/pdf" class="hidden" />
+        </div>
+
+        <div class="mt-3 rounded-xl border border-amber-400/10 bg-amber-400/[0.05] p-3 flex items-start gap-2">
+          <span class="mt-0.5">💡</span>
+          <p class="text-[11px] leading-relaxed text-slate-400">
+            For best results, use a single-column resume without tables or complex formatting.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Bottom action bar -->
+    <div class="max-w-2xl mx-auto mt-8">
+      <button id="analyzeBtn" type="button" disabled class="analyze-btn w-full">
+        <span id="analyzeBtnLabel">✨ Analyze Resume 🚀 →</span>
+      </button>
+      <p class="text-center text-xs text-slate-500 mt-3">Powered by Gemini 2.5 Flash · Results in ~10–20 seconds</p>
+      <p id="errorText" class="text-center text-xs text-rose-400 mt-2 hidden"></p>
+    </div>
+
+    <!-- Results container (revealed after a successful analysis) -->
+    <section id="resultsContainer" class="card p-6 mt-8 hidden">
+      <div class="flex items-center gap-2.5 mb-4">
+        <span class="icon-badge icon-badge--emerald">📊</span>
+        <h3 class="text-sm font-semibold text-white">Analysis Results</h3>
+      </div>
+      <div id="resultsContent" class="prose prose-invert prose-sm max-w-none custom-scrollbar"></div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
