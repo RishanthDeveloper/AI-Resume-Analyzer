@@ -7,8 +7,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Bootstrap entry point for the AI Resume Analyzer backend.
  * <p>
  * Run locally with: {@code mvn spring-boot:run}
- * Server starts on port 8000 by default (see application.properties),
- * matching the frontend's API_URL of http://localhost:8000/api/analyze.
+ * Server starts on port 8000 by default (or the $PORT environment variable on Render),
+ * matching the frontend's API_URL configuration.
  */
 @SpringBootApplication
 public class ResumeAnalyzerApplication {

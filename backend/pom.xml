@@ -15,7 +15,7 @@
   <artifactId>resume-analyzer-backend</artifactId>
   <version>1.0.0</version>
   <name>resume-analyzer-backend</name>
-  <description>AI Resume Analyzer backend — Spring Boot 3 + Apache PDFBox + Gemini 2.5 Flash</description>
+  <description>AI Resume Analyzer backend — Spring Boot 3 + Apache PDFBox + Gemini 2.5 Flash + Supabase</description>
 
   <properties>
     <java.version>17</java.version>
@@ -41,11 +41,17 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- Apache PDFBox — PDF text extraction -->
+    <!-- Apache PDFBox — PDF text extraction (3.0.2) -->
     <dependency>
       <groupId>org.apache.pdfbox</groupId>
       <artifactId>pdfbox</artifactId>
       <version>3.0.2</version>
+    </dependency>
+
+    <!-- Jackson Databind for JSON parsing -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
     </dependency>
 
     <!-- Testing -->

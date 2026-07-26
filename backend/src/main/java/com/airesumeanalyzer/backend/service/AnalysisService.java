@@ -1,5 +1,6 @@
 package com.airesumeanalyzer.backend.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.pdfbox.Loader;
@@ -23,11 +24,11 @@ import java.util.Map;
  * <p>
  * Responsibilities:
  * <ol>
- *   <li>Extract plain text from an uploaded resume PDF using Apache PDFBox.</li>
- *   <li>Build a structured prompt and call the Gemini {@code generateContent}
+ *   <li>Extract plain text from an uploaded resume PDF using Apache PDFBox 3.x.</li>
+ *   <li>Build a structured JSON prompt and call the Gemini 2.5 Flash {@code generateContent}
  *       REST endpoint directly over HTTP (no vendor SDK dependency).</li>
- *   <li>Return the model's markdown-formatted analysis report as plain text,
- *       ready for client-side markdown rendering.</li>
+ *   <li>Return a strict, structured JSON Map with all 5 core features:
+ *       ATS Score, Skill Gap Analysis, Resume Suggestions, Job Matching, and Interview Questions.</li>
  * </ol>
  */
 @Service
@@ -49,11 +50,11 @@ public class AnalysisService {
     private String fallbackApiKey;
 
     /**
-     * Extracts raw text content from an uploaded PDF using PDFBox's
-     * {@code PDDocument.load} + {@code PDFTextStripper}.
+     * Extracts raw text content from an uploaded PDF using PDFBox 3.x
+     * {@code Loader.loadPDF(byte[])} + {@code PDFTextStripper}.
      *
      * @throws IllegalArgumentException if the file is missing/empty or has no extractable text
-     * @throws IOException              if the PDF cannot be parsed (corrupted/malformed file)
+     * @throws IOException              if the PDF cannot be parsed
      */
     public String extractResumeText(MultipartFile resumeFile) throws IOException {
         if (resumeFile == null || resumeFile.isEmpty()) {
@@ -80,27 +81,27 @@ public class AnalysisService {
 
     /**
      * Sends the extracted resume text and job description to Gemini and
-     * returns a markdown-formatted analysis report.
+     * returns a structured Map representing the 5 analysis sections.
      *
      * @param resumeText      plain text extracted from the resume PDF
      * @param jobDescription  the target job description
      * @param requestApiKey   optional per-request API key supplied by the client;
      *                        falls back to {@code gemini.api.key} if blank
      */
-    public String analyzeResume(String resumeText, String jobDescription, String requestApiKey) {
+    public Map<String, Object> analyzeResume(String resumeText, String jobDescription, String requestApiKey) {
         String apiKey = resolveApiKey(requestApiKey);
 
         if (jobDescription == null || jobDescription.isBlank()) {
             throw new IllegalArgumentException("Job description must not be empty.");
         }
 
-        String prompt = buildPrompt(resumeText, jobDescription);
+        String prompt = buildStructuredPrompt(resumeText, jobDescription);
         String requestBody = buildGeminiRequestBody(prompt);
         String endpoint = String.format(GEMINI_ENDPOINT_TEMPLATE, geminiModel, apiKey);
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(endpoint))
-                .timeout(Duration.ofSeconds(30))
+                .timeout(Duration.ofSeconds(45))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
@@ -116,7 +117,8 @@ public class AnalysisService {
                         "Gemini API returned an error (HTTP " + response.statusCode() + "): " + response.body());
             }
 
-            return extractMarkdownFromResponse(response.body());
+            String rawJsonContent = extractJsonFromResponse(response.body());
+            return parseAndValidateAnalysisJson(rawJsonContent);
         } catch (java.net.http.HttpTimeoutException e) {
             throw new IllegalStateException("Timed out while waiting for the Gemini API to respond.", e);
         } catch (IOException | InterruptedException e) {
@@ -124,10 +126,6 @@ public class AnalysisService {
             throw new IllegalStateException("Failed to reach the Gemini API: " + e.getMessage(), e);
         }
     }
-
-    // -------------------------------------------------------------------
-    // Internal helpers
-    // -------------------------------------------------------------------
 
     private String resolveApiKey(String requestApiKey) {
         String key = (requestApiKey != null && !requestApiKey.isBlank()) ? requestApiKey : fallbackApiKey;
@@ -138,28 +136,64 @@ public class AnalysisService {
         return key;
     }
 
-    private String buildPrompt(String resumeText, String jobDescription) {
+    private String buildStructuredPrompt(String resumeText, String jobDescription) {
         return """
-                You are an expert ATS (Applicant Tracking System) auditor and professional resume
-                reviewer. Compare the RESUME below against the JOB DESCRIPTION and produce a
-                well-structured markdown report with the following sections, using headings,
-                bullet points, and bold text where appropriate:
+                You are an expert ATS (Applicant Tracking System) auditor, technical recruiter, and interview strategist for placement interviews.
+                Compare the provided RESUME against the target JOB DESCRIPTION.
 
-                ## Match Score
-                State an overall ATS match percentage (0-100) with a one-line justification.
+                Respond ONLY with a valid, raw JSON object (strictly no markdown formatting, no code fences like ```json, no extra preamble).
 
-                ## Matched Keywords
-                A bullet list of skills/technologies/qualifications present in both the resume
-                and the job description.
+                The JSON object MUST strictly adhere to this structure:
 
-                ## Missing Keywords
-                A bullet list of important skills/technologies/qualifications mentioned in the
-                job description but absent from the resume.
+                {
+                  "atsScore": {
+                    "score": 85,
+                    "breakdown": {
+                      "formatting": 90,
+                      "keywordMatch": 80,
+                      "sectionCompleteness": 85
+                    },
+                    "summary": "Short evaluation summary of overall ATS compatibility."
+                  },
+                  "skillGap": {
+                    "missingSkills": ["Docker", "Kubernetes", "Redis"],
+                    "matchingSkills": ["Java 17", "Spring Boot", "REST APIs"],
+                    "summary": "Detailed breakdown of technical and domain skills gap."
+                  },
+                  "suggestions": {
+                    "lineLevelRewrites": [
+                      {
+                        "original": "Worked on backend service with Spring",
+                        "suggested": "Architected microservices using Spring Boot 3.2, reducing API latency by 35%",
+                        "reason": "Quantify achievement and highlight specific framework versions"
+                      }
+                    ],
+                    "generalAdvice": [
+                      "Include metric-driven bullet points for all recent experience.",
+                      "Add a Dedicated Technical Skills matrix at top."
+                    ]
+                  },
+                  "jobMatching": {
+                    "matchPercentage": 82,
+                    "reasoning": "Strong alignment on core Java backend skills with minor gap in cloud infrastructure.",
+                    "keyStrengths": ["Core Java Expertise", "RESTful Architecture", "Database Design"],
+                    "gaps": ["Cloud Deployment Experience", "Containerization"]
+                  },
+                  "interviewQuestions": [
+                    {
+                      "question": "Can you explain how you designed your Spring Boot services to handle high concurrency?",
+                      "category": "Technical / Backend Architecture",
+                      "keyPointsToCover": "Discuss connection pooling, stateless REST APIs, caching, and async processing."
+                    },
+                    {
+                      "question": "Tell me about a time you optimized a slow database query or API endpoint.",
+                      "category": "Problem Solving / Performance Tuning",
+                      "keyPointsToCover": "Explain indexing, query profiling, caching strategies, and measured performance gains."
+                    }
+                  ]
+                }
 
-                ## Actionable Improvements
-                3-5 specific, concrete suggestions to improve the resume's fit for this role.
-
-                Respond with markdown only — no surrounding commentary, no code fences.
+                Provide 5 to 8 realistic, relevant interview questions tailored to placement interviews for this role in the interviewQuestions array.
 
                 RESUME:
                 %s
@@ -176,7 +210,8 @@ public class AnalysisService {
                             Map.of("parts", List.of(Map.of("text", prompt)))
                     ),
                     "generationConfig", Map.of(
-                            "temperature", 0.3
+                            "temperature", 0.2,
+                            "responseMimeType", "application/json"
                     )
             );
             return objectMapper.writeValueAsString(body);
@@ -185,7 +220,7 @@ public class AnalysisService {
         }
     }
 
-    private String extractMarkdownFromResponse(String rawBody) {
+    private String extractJsonFromResponse(String rawBody) {
         try {
             JsonNode root = objectMapper.readTree(rawBody);
             JsonNode candidates = root.path("candidates");
@@ -194,14 +229,29 @@ public class AnalysisService {
                 throw new IllegalStateException("Gemini response contained no candidates.");
             }
 
-            return candidates.get(0)
+            String text = candidates.get(0)
                     .path("content")
                     .path("parts").get(0)
                     .path("text")
                     .asText()
                     .trim();
+
+            // Clean markdown code blocks if the model wrapped it despite system prompt
+            if (text.startsWith("```")) {
+                text = text.replaceAll("^```(?:json)?\\s*", "").replaceAll("\\s*```$", "").trim();
+            }
+
+            return text;
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to parse the Gemini API response: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to parse the Gemini API response wrapper: " + e.getMessage(), e);
+        }
+    }
+
+    private Map<String, Object> parseAndValidateAnalysisJson(String jsonString) {
+        try {
+            return objectMapper.readValue(jsonString, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            throw new IllegalStateException("Model response could not be parsed as valid JSON: " + e.getMessage(), e);
         }
     }
 }

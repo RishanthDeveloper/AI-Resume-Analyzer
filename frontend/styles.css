@@ -1,0 +1,199 @@
+/* AI Resume Analyzer — Custom Styles */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: #0B0C0E;
+  color: #f1f5f9;
+}
+
+/* Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+textarea {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Card Styling */
+.card {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #101215;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Feature Pills */
+.pill {
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 9999px;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: #cbd5e1;
+}
+
+/* Icon Badges */
+.icon-badge {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.icon-badge--emerald {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+
+.icon-badge--cyan {
+  background: rgba(34, 211, 238, 0.12);
+  color: #22d3ee;
+}
+
+.icon-badge--purple {
+  background: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
+}
+
+/* Form Inputs */
+.input-shell {
+  border-radius: 0.75rem;
+  background: #060708;
+  padding: 0.65rem 0.85rem;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.input-shell:focus-within {
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.6), 0 0 15px rgba(52, 211, 153, 0.15);
+}
+
+/* Drag and Drop Zone */
+.dropzone {
+  position: relative;
+  border: 2px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 1rem;
+  padding: 2rem 1.5rem;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.01);
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  min-height: 180px;
+}
+
+.dropzone:hover {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.02);
+}
+
+.dropzone--active {
+  transform: scale(1.01);
+  background-color: rgba(52, 211, 153, 0.06);
+  border-color: rgba(52, 211, 153, 0.7);
+}
+
+.dropzone-icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: rgba(16, 185, 129, 0.1);
+}
+
+/* Primary Action Button */
+.analyze-btn {
+  border: none;
+  border-radius: 1rem;
+  padding: 1.1rem 1.75rem;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #04120c;
+  background: linear-gradient(135deg, #34ffb0 0%, #10b981 100%);
+  box-shadow: 0 0 35px rgba(52, 255, 176, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analyze-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 50px rgba(52, 255, 176, 0.45);
+}
+
+.analyze-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.analyze-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+  background: rgba(255, 255, 255, 0.08);
+  color: #64748b;
+  box-shadow: none;
+}
+
+.analyze-btn.is-loading {
+  opacity: 0.85;
+  cursor: progress;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(4, 18, 12, 0.3);
+  border-top-color: #04120c;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Reveal animation */
+#resultsContainer {
+  animation: fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hidden {
+  display: none !important;
+}

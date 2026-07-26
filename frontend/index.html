@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Resume Analyzer — Placement & ATS Intelligence</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Supabase JS CDN (v2) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Marked.js for markdown rendering fallback -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/11.1.1/marked.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+  <script src="config.js"></script>
+</head>
+<body class="bg-[#0B0C0E] text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Navigation Bar -->
+  <nav class="border-b border-white/10 bg-[#101215]/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-lg shadow-lg shadow-emerald-500/10">
+          ⚡
+        </div>
+        <div>
+          <span class="font-bold text-white tracking-tight text-lg">ResumeAnalyzer</span>
+          <span class="ml-2 text-[11px] rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 font-medium">
+            Placement AI 2.5
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4 text-sm">
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer"
+          class="hidden sm:flex items-center gap-1.5 text-slate-400 hover:text-emerald-400 transition text-xs font-medium border border-white/10 px-3 py-1.5 rounded-lg bg-white/5">
+          <span>✨</span> Get Gemini Key
+        </a>
+
+        <!-- History Button (Logged In) -->
+        <button id="historyNavBtn" type="button" class="hidden text-xs font-medium text-slate-300 hover:text-white border border-white/10 hover:border-white/20 bg-white/5 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+          <span>📜</span> My History
+        </button>
+
+        <!-- Auth Status Container -->
+        <div id="authNavContainer">
+          <button id="openAuthModalBtn" type="button"
+            class="text-xs font-semibold text-slate-900 bg-emerald-400 hover:bg-emerald-300 px-4 py-2 rounded-lg transition shadow-md shadow-emerald-400/20 flex items-center gap-1.5">
+            <span>🔑</span> Sign In / Sign Up
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-6 py-8 flex-1 w-full">
+
+    <!-- Hero Banner -->
+    <header class="text-center max-w-3xl mx-auto mb-10">
+      <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
+        AI Resume Analyzer <br/>
+        <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
+          Placement & Interview Intelligence
+        </span>
+      </h1>
+      <p class="text-sm md:text-base text-slate-400 mt-4 leading-relaxed">
+        Upload your resume and target job description to get an immediate ATS compatibility score,
+        skill gap breakdown, line-level rewrite suggestions, and <strong>custom placement interview questions</strong>.
+      </p>
+
+      <div class="flex flex-wrap justify-center gap-2 mt-6">
+        <span class="pill">🟢 ATS Score Breakdown</span>
+        <span class="pill">🔍 Skill Gap Matrix</span>
+        <span class="pill">✍️ Line Rewrites</span>
+        <span class="pill">🎯 Job Fit %</span>
+        <span class="pill">🎓 Placement Q&amp;A</span>
+      </div>
+    </header>
+
+    <!-- Three-Column Input Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Column 1: Configuration -->
+      <section class="card p-6 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <span class="icon-badge icon-badge--emerald">🔑</span>
+            <div>
+              <h3 class="text-base font-semibold text-white">Gemini API Key</h3>
+              <p class="text-xs text-slate-400">Per-request key (never saved on server)</p>
+            </div>
+          </div>
+
+          <label class="block text-xs font-medium text-slate-300 mb-2">
+            GOOGLE GEMINI API KEY <span class="text-rose-400">*</span>
+          </label>
+          <div class="input-shell flex items-center gap-2 mb-2">
+            <input id="apiKeyInput" type="password" placeholder="AIzaSy..."
+              class="bg-transparent w-full text-sm text-slate-100 placeholder:text-slate-600 outline-none font-mono" />
+            <button id="toggleVisibility" type="button" class="text-slate-500 hover:text-slate-300 transition text-sm px-1" aria-label="Toggle key visibility">👁</button>
+          </div>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer"
+            class="text-xs text-emerald-400 hover:text-emerald-300 transition inline-flex items-center gap-1 font-medium">
+            <span>🔗</span> Get free API key from Google AI Studio
+          </a>
+
+          <div class="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-start gap-2.5">
+            <span class="text-emerald-400 text-sm mt-0.5">🛡️</span>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              <strong class="text-emerald-300 font-semibold">Zero-Trust Architecture:</strong>
+              Your API key is transmitted directly for request execution and is never persisted.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
+          <span class="font-mono bg-white/5 border border-white/10 rounded-md px-2 py-0.5 text-emerald-400">gemini-2.5-flash</span>
+          <span>Google AI</span>
+        </div>
+      </section>
+
+      <!-- Column 2: Job Description -->
+      <section class="card p-6 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <span class="icon-badge icon-badge--cyan">📘</span>
+              <div>
+                <h3 class="text-base font-semibold text-white">Target Job Description</h3>
+                <p class="text-xs text-slate-400">Paste responsibilities & requirements</p>
+              </div>
+            </div>
+            <button id="loadExampleBtn" type="button"
+              class="text-xs rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-emerald-300 hover:bg-emerald-500/20 transition font-medium">
+              Load example
+            </button>
+          </div>
+
+          <div class="input-shell flex-1">
+            <textarea id="jdInput" placeholder="Paste the job requirements, tech stack, and responsibilities..."
+              class="bg-transparent w-full h-40 text-sm text-slate-100 placeholder:text-slate-600 outline-none resize-none custom-scrollbar leading-relaxed"></textarea>
+          </div>
+          <div id="jdCharCount" class="text-right text-xs text-slate-500 mt-1 font-mono">0 chars</div>
+        </div>
+
+        <div class="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 flex items-start gap-2 text-xs text-slate-300">
+          <span class="text-amber-400 mt-0.5">💡</span>
+          <span>Include required skills &amp; qualifications for accurate placement interview match.</span>
+        </div>
+      </section>
+
+      <!-- Column 3: Upload Resume -->
+      <section class="card p-6 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-4">
+            <span class="icon-badge icon-badge--purple">📄</span>
+            <div>
+              <h3 class="text-base font-semibold text-white">Upload Resume PDF</h3>
+              <p class="text-xs text-slate-400">Parsed safely using PDFBox 3.x</p>
+            </div>
+          </div>
+
+          <div id="dropzone" class="dropzone flex flex-col items-center justify-center gap-3 text-center py-8">
+            <div class="dropzone-icon">📄</div>
+            <p id="dropzoneText" class="text-sm text-slate-300 font-medium">
+              Drag &amp; drop resume or <button id="browseBtn" type="button" class="text-emerald-400 underline hover:text-emerald-300 font-semibold">browse</button>
+            </p>
+            <span class="rounded-full border border-white/10 bg-white/5 px-3 py-0.5 text-xs text-slate-400">PDF only • Max 10MB</span>
+            <input id="fileInput" type="file" accept="application/pdf" class="hidden" />
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-xl border border-blue-400/20 bg-blue-400/5 p-3 flex items-start gap-2 text-xs text-slate-300">
+          <span class="text-blue-400 mt-0.5">ℹ️</span>
+          <span>Single-column text PDFs provide maximum parsing accuracy for ATS evaluation.</span>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Submit Action Area -->
+    <div class="max-w-xl mx-auto mt-8">
+      <button id="analyzeBtn" type="button" disabled class="analyze-btn w-full text-center">
+        <span id="analyzeBtnLabel">✨ Analyze Resume &amp; Generate Interview Prep 🚀</span>
+      </button>
+      <p class="text-center text-xs text-slate-500 mt-3">Structured response generated by Gemini 2.5 Flash in ~10–15 seconds</p>
+      <div id="errorText" class="mt-3 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs text-center hidden"></div>
+    </div>
+
+    <!-- Interactive Results Dashboard -->
+    <section id="resultsContainer" class="mt-12 hidden space-y-8">
+      
+      <!-- Results Header -->
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <span>🎯</span> AI Resume Analysis &amp; Placement Report
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Generated specifically for placement interview preparation</p>
+        </div>
+        <div id="historySaveBadge" class="hidden text-xs rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 px-3 py-1 font-medium flex items-center gap-1.5">
+          <span>✓</span> Saved to Supabase History
+        </div>
+      </div>
+
+      <!-- Feature 1 & 4 Grid: ATS Score & Job Matching -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Feature 1: ATS Score Card -->
+        <div class="card p-6 border border-emerald-500/20">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <span class="text-emerald-400">📊</span> ATS Score Breakdown
+            </h3>
+            <div id="atsScoreBadge" class="text-2xl font-extrabold text-emerald-400 font-mono">0%</div>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between text-xs font-semibold text-slate-300 mb-1">
+                <span>Formatting &amp; Structure</span>
+                <span id="scoreFormatVal">0%</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-2">
+                <div id="scoreFormatBar" class="bg-emerald-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold text-slate-300 mb-1">
+                <span>Keyword Alignment</span>
+                <span id="scoreKeywordVal">0%</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-2">
+                <div id="scoreKeywordBar" class="bg-teal-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-semibold text-slate-300 mb-1">
+                <span>Section Completeness</span>
+                <span id="scoreSectionVal">0%</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-2">
+                <div id="scoreSectionBar" class="bg-cyan-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <p id="atsSummary" class="text-xs text-slate-300 bg-white/5 border border-white/10 rounded-xl p-3 leading-relaxed mt-3"></p>
+          </div>
+        </div>
+
+        <!-- Feature 4: Job Matching Card -->
+        <div class="card p-6 border border-cyan-500/20">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <span class="text-cyan-400">🎯</span> Job Match Fit
+            </h3>
+            <div id="jobMatchBadge" class="text-2xl font-extrabold text-cyan-400 font-mono">0%</div>
+          </div>
+
+          <p id="jobMatchReasoning" class="text-xs text-slate-300 bg-white/5 border border-white/10 rounded-xl p-3 leading-relaxed mb-4"></p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div>
+              <span class="font-bold text-emerald-400 flex items-center gap-1 mb-1.5">✓ Key Strengths</span>
+              <ul id="keyStrengthsList" class="space-y-1 text-slate-300 list-disc list-inside"></ul>
+            </div>
+            <div>
+              <span class="font-bold text-rose-400 flex items-center gap-1 mb-1.5">⚠ Gap Areas</span>
+              <ul id="gapsList" class="space-y-1 text-slate-300 list-disc list-inside"></ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Feature 2: Skill Gap Analysis -->
+      <div class="card p-6 border border-amber-500/20">
+        <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">
+          <span class="text-amber-400">🔍</span> Skill Gap Analysis
+        </h3>
+        <p id="skillGapSummary" class="text-xs text-slate-300 mb-4 leading-relaxed"></p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
+            <h4 class="text-xs font-bold text-rose-400 mb-2.5 tracking-wide flex items-center gap-1.5">
+              <span>🚨</span> MISSING SKILLS IN RESUME
+            </h4>
+            <div id="missingSkillsBadges" class="flex flex-wrap gap-2"></div>
+          </div>
+
+          <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+            <h4 class="text-xs font-bold text-emerald-400 mb-2.5 tracking-wide flex items-center gap-1.5">
+              <span>✅</span> MATCHED SKILLS
+            </h4>
+            <div id="matchingSkillsBadges" class="flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature 3: Line-Level Resume Suggestions -->
+      <div class="card p-6 border border-purple-500/20">
+        <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <span class="text-purple-400">✍️</span> Resume Improvements &amp; Line Rewrites
+        </h3>
+
+        <div class="overflow-x-auto custom-scrollbar mb-6">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-white/10 text-slate-400 font-semibold bg-white/5">
+                <th class="p-3 w-1/3">Original Text</th>
+                <th class="p-3 w-1/3">Suggested High-Impact Rewrite</th>
+                <th class="p-3 w-1/3">Improvement Rationale</th>
+              </tr>
+            </thead>
+            <tbody id="lineRewritesTable" class="divide-y divide-white/5 text-slate-300"></tbody>
+          </table>
+        </div>
+
+        <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+          <h4 class="text-xs font-bold text-purple-300 mb-2 flex items-center gap-1.5">
+            <span>💡</span> General Structural Advice
+          </h4>
+          <ul id="generalAdviceList" class="space-y-1.5 text-xs text-slate-300 list-disc list-inside"></ul>
+        </div>
+      </div>
+
+      <!-- Feature 5: Placement Interview Questions -->
+      <div class="card p-6 border border-indigo-500/30 bg-gradient-to-b from-indigo-950/20 to-[#101215]">
+        <div class="mb-4">
+          <h3 class="text-xl font-bold text-white flex items-center gap-2">
+            <span class="text-indigo-400">🎓</span> Placement Interview Questions &amp; Answer Guide
+          </h3>
+          <p class="text-xs text-slate-400 mt-1">Generated based on your candidate profile and the target job description</p>
+        </div>
+
+        <div id="interviewQuestionsContainer" class="space-y-4"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/10 py-6 text-center text-xs text-slate-500">
+    <p>AI Resume Analyzer · Spring Boot 3 + Supabase + Gemini 2.5 Flash</p>
+  </footer>
+
+  <!-- Supabase Auth Modal -->
+  <div id="authModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="card p-6 max-w-md w-full border border-white/20 relative shadow-2xl">
+      <button id="closeAuthModalBtn" type="button" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
+
+      <div class="text-center mb-6">
+        <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto text-xl mb-2">
+          🔑
+        </div>
+        <h3 class="text-xl font-bold text-white">Supabase Authentication</h3>
+        <p class="text-xs text-slate-400 mt-1">Sign in or create an account to save your resume analysis history</p>
+      </div>
+
+      <div class="flex border-b border-white/10 mb-5">
+        <button id="tabSignin" type="button" class="flex-1 pb-2 text-sm font-semibold text-emerald-400 border-b-2 border-emerald-400">Sign In</button>
+        <button id="tabSignup" type="button" class="flex-1 pb-2 text-sm font-semibold text-slate-400 border-b-2 border-transparent">Sign Up</button>
+      </div>
+
+      <form id="authForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Email Address</label>
+          <input id="authEmail" type="email" required placeholder="candidate@example.com"
+            class="input-shell w-full text-sm text-slate-100 outline-none bg-[#0B0C0E]" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Password</label>
+          <input id="authPassword" type="password" required placeholder="••••••••"
+            class="input-shell w-full text-sm text-slate-100 outline-none bg-[#0B0C0E]" />
+        </div>
+
+        <button id="authSubmitBtn" type="submit"
+          class="w-full bg-emerald-400 hover:bg-emerald-300 text-slate-900 font-bold py-2.5 rounded-xl transition text-sm shadow-lg shadow-emerald-400/20">
+          Sign In
+        </button>
+
+        <div id="authError" class="text-xs text-rose-400 text-center hidden"></div>
+        <div id="authSuccess" class="text-xs text-emerald-400 text-center hidden"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div id="historyModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="card p-6 max-w-3xl w-full border border-white/20 relative shadow-2xl max-h-[85vh] flex flex-col">
+      <button id="closeHistoryModalBtn" type="button" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg">✕</button>
+
+      <div class="mb-4">
+        <h3 class="text-xl font-bold text-white flex items-center gap-2">
+          <span>📜</span> My Resume Analysis History
+        </h3>
+        <p class="text-xs text-slate-400 mt-1">Saved securely in Supabase PostgreSQL (Protected by RLS)</p>
+      </div>
+
+      <div id="historyListContainer" class="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-1">
+        <p class="text-xs text-slate-400 text-center py-8">Loading history records...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
