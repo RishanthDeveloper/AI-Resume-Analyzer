@@ -7,11 +7,61 @@
   <img src="https://img.shields.io/badge/Java-17-orange?logo=openjdk" alt="Java 17" />
   <img src="https://img.shields.io/badge/AI-Gemini_2.5_Flash-4285F4?logo=google" alt="Gemini 2.5 Flash" />
   <img src="https://img.shields.io/badge/Database-Supabase_PostgreSQL-3ECF8E?logo=supabase" alt="Supabase" />
-  <img src="https://img.shields.io/badge/Frontend-Vanilla_JS-F7DF1E?logo=javascript" alt="Vanilla JS" />
-  <img src="https://img.shields.io/badge/PDF_Parser-Apache_PDFBox_3-blue" alt="PDFBox" />
+  <img src="https://img.shields.io/badge/Security-Spring_Security_6-red" alt="Spring Security" />
+  <img src="https://img.shields.io/badge/Rate_Limiter-Bucket4j-blue" alt="Bucket4j" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="MIT License" />
 </p>
 
 An end-to-end AI-powered resume analysis and placement interview preparation application. It parses uploaded PDF resumes in-memory using **Apache PDFBox 3.x**, evaluates them against target job descriptions using **Google Gemini 2.5 Flash**, and provides structured, actionable insights tailored for competitive placement interviews. Authentication and historical report persistence are powered by **Supabase (PostgreSQL + RLS)**.
+
+---
+
+## 🏗️ Architecture Diagram
+
+```
++-----------------------------------------------------------------------------------+
+|                                 USER BROWSER                                      |
+|  - Vanilla HTML/CSS/JS (Tailwind, Supabase JS v2)                                 |
+|  - Authentication via Supabase Auth                                               |
+|  - Per-Request Gemini API Key + Supabase Bearer JWT Token                         |
++----------------------------------------+------------------------------------------+
+                                         |
+                                         | HTTPS / REST API
+                                         v
++----------------------------------------+------------------------------------------+
+|                            SPRING BOOT 3 BACKEND                                  |
+|                                                                                   |
+|  +-----------------------------------------------------------------------------+  |
+|  | Security & Filtering Layer                                                  |  |
+|  | - CorsConfig (Allowed Origins)                                             |  |
+|  | - SecurityConfig (CSP, HSTS, X-Frame-Options, X-Content-Type-Options)        |  |
+|  | - RateLimiterService (Bucket4j 10 req/min per IP & User)                    |  |
+|  | - SupabaseAuthService (Server-Side Bearer Token Verification)               |  |
+|  +-------------------------------------+---------------------------------------+  |
+|                                        |                                          |
+|                                        v                                          |
+|  +-------------------------------------+---------------------------------------+  |
+|  | ApiController (/api/analyze, /api/health)                                   |  |
+|  +-------------------------------------+---------------------------------------+  |
+|                                        |                                          |
+|  +-------------------------------------+---------------------------------------+  |
+|  | Modular Service Layer                                                       |  |
+|  | - PdfTextExtractor (5s Timeout, PDFBox 3.x)                                 |  |
+|  | - GeminiPromptBuilder (XML Boundary Defenses)                                 |  |
+|  | - GeminiClient (REST Client to Google Gemini 2.5 Flash)                      |  |
+|  | - AnalysisResponseValidator (DTO Schema Enforcement)                         |  |
+|  | - SupabaseService (HistoryRepository Implementation via service_role key)    |  |
+|  +-------------------------------------+---------------------------------------+  |
++----------------------------------------+------------------------------------------+
+                                         |
+                       +-----------------+-----------------+
+                       |                                   |
+                       v                                   v
++----------------------+------------------+   +------------+------------------------+
+|       GOOGLE GEMINI 2.5 FLASH API       |   |       SUPABASE POSTGRESQL DB       |
+| - generateContent REST Endpoint         |   | - analysis_history Table (RLS)          |
++-----------------------------------------+   +-------------------------------------+
+```
 
 ---
 
@@ -22,39 +72,8 @@ An end-to-end AI-powered resume analysis and placement interview preparation app
 - **✍️ Line-Level Resume Suggestions**: Gives concrete line-by-line rewrite suggestions with explanations to improve resume impact.
 - **🎯 Job Fit & Match Score**: Highlights candidate strengths and gap areas against the job requirements.
 - **🎓 Placement Interview Questions**: Generates 5–8 targeted interview questions based on the candidate's specific background and the target role, complete with "What a strong answer should cover" guidance.
-- **🔐 Supabase Auth & RLS History**: Enables user login/signup via email & password and stores past resume evaluations securely in Supabase PostgreSQL protected by Row Level Security (RLS).
-- **🛡️ Zero-Trust Security**: Per-request Gemini API key passed directly from the browser; resume bytes exist strictly in-memory during extraction and are never saved on application disk.
-
----
-
-## 🏗️ Architecture & Technology Stack
-
-```
-resume-analyzer-zero-trust/
-├── backend/                                  # Spring Boot 3.2.5 Java 17 service
-│   ├── Dockerfile                           # Multi-stage Docker build for Render/container deployment
-│   ├── pom.xml                              # Maven dependencies (Spring Web, PDFBox 3.0.2, Jackson)
-│   └── src/main/
-│       ├── java/com/airesumeanalyzer/backend/
-│       │   ├── ResumeAnalyzerApplication.java
-│       │   ├── controller/ApiController.java # REST API endpoints (/api/analyze, /api/health) & CORS
-│       │   └── service/
-│       │       ├── AnalysisService.java     # PDFBox parsing & direct REST calls to Gemini 2.5 Flash
-│       │       └── SupabaseService.java     # Backend history persistence via Supabase REST API (service_role)
-│       └── resources/
-│           └── application.properties       # Spring Boot config ($PORT, Gemini model, upload limits)
-│
-├── frontend/                                 # Lightweight Vanilla Web Application
-│   ├── config.js                            # Easy configuration point for API_URL & Supabase keys
-│   ├── index.html                           # Modern responsive UI with Tailwind & modals
-│   ├── app.js                               # Interactive dashboard & Supabase auth/history handlers
-│   └── styles.css                           # Glassmorphic dark design system & animations
-│
-├── .env.example                              # Environment variable documentation
-├── render.yaml                               # Render Blueprint for backend deployment
-├── supabase_schema.sql                       # Database migration & RLS policy setup script
-└── README.md
-```
+- **🔐 Supabase Auth & Verified RLS History**: Enables user login/signup via email & password and stores past resume evaluations securely in Supabase PostgreSQL protected by verified server-side JWT authentication.
+- **🛡️ Zero-Trust Security**: Server-side token verification, Bucket4j rate-limiting, CSP, HSTS, security headers, and non-root Docker execution.
 
 ---
 
@@ -87,27 +106,29 @@ Navigate to the `backend` directory:
 cd backend
 ```
 
-Set optional environment variables or copy values from `.env.example`:
+Set environment variables or copy values from `.env.example`:
 
 ```bash
 # Environment variables (Linux/macOS)
 export SUPABASE_URL="https://your-project.supabase.co"
+export SUPABASE_ANON_KEY="your-supabase-anon-key"
 export SUPABASE_SERVICE_KEY="your-supabase-service-role-key"
 export CORS_ALLOWED_ORIGINS="http://localhost:5500,http://127.0.0.1:5500,http://localhost:3000"
 
 # PowerShell (Windows)
 $env:SUPABASE_URL="https://your-project.supabase.co"
+$env:SUPABASE_ANON_KEY="your-supabase-anon-key"
 $env:SUPABASE_SERVICE_KEY="your-supabase-service-role-key"
 ```
 
-Build and run the application:
+Build and test the application:
 
 ```bash
-mvn clean package
+mvn clean test
 mvn spring-boot:run
 ```
 
-The Spring Boot backend will start on **`http://localhost:8000`**. You can verify health at `http://localhost:8000/api/health`.
+The Spring Boot backend will start on **`http://localhost:8000`**. You can verify health and dependency reachability at `http://localhost:8000/api/health`.
 
 ---
 
@@ -128,10 +149,6 @@ window.APP_CONFIG = {
 ```bash
 # Using npx serve
 npx serve frontend -p 5500
-
-# Or using Python
-cd frontend
-python -m http.server 5500
 ```
 
 3. Open `http://localhost:5500` in your browser.
@@ -145,44 +162,29 @@ python -m http.server 5500
 1. Push your repository to GitHub.
 2. Log into [Render.com](https://render.com) and click **New -> Blueprint**.
 3. Connect your GitHub repository `resume-analyzer-zero-trust`. Render will detect [`render.yaml`](./render.yaml).
-4. Configure the environment variables in the Render dashboard:
-   - `SUPABASE_URL`: Your Supabase Project URL
-   - `SUPABASE_SERVICE_KEY`: Your Supabase `service_role` key
-   - `CORS_ALLOWED_ORIGINS`: `https://your-frontend.vercel.app`
-5. Click **Apply**. Render will build the Docker container and expose your API (e.g. `https://resume-analyzer-backend.onrender.com`).
+4. Configure environment variables in Render Dashboard (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `CORS_ALLOWED_ORIGINS`).
+5. Render will build the Docker container using `USER appuser` and execute health check probes.
 
 ---
 
 ### B. Deploy Frontend to Vercel
 
-1. Log into [Vercel](https://vercel.com) and click **Add New -> Project**.
-2. Import your GitHub repository `resume-analyzer-zero-trust`.
-3. Set **Root Directory** to `frontend`.
-4. Leave framework predefined as **Other** (Static Site).
-5. In `frontend/config.js`, update `API_URL` to point to your deployed Render URL:
-   ```javascript
-   API_URL: "https://resume-analyzer-backend.onrender.com/api/analyze"
-   ```
-6. Click **Deploy**.
+1. Import your GitHub repository `resume-analyzer-zero-trust` to Vercel.
+2. Set **Root Directory** to `frontend`.
+3. Vercel will automatically route requests using [`vercel.json`](./vercel.json).
 
 ---
 
-### C. Update CORS Configuration
-
-After deploying your frontend to Vercel, update the `CORS_ALLOWED_ORIGINS` env variable on Render to include your Vercel URL (e.g. `https://resume-analyzer-zero-trust.vercel.app`), or add it to the `@CrossOrigin` origins array in [`ApiController.java`](./backend/src/main/java/com/airesumeanalyzer/backend/controller/ApiController.java).
-
----
-
-## 📝 API Endpoints
+## 📝 API Documentation
 
 ### `POST /api/analyze`
 Consumes `multipart/form-data`:
 - `resume` (PDF file, max 10MB)
-- `jobDescription` (String, required)
+- `jobDescription` (String, required, max 5000 chars)
 - `apiKey` (Gemini API Key, required)
-- `userId` (Supabase User UUID, optional for history saving)
+- `Authorization` header (`Bearer <token>`, optional for authenticated history saving)
 
-**Sample JSON Response Structure**:
+**Response Structure (`200 OK`)**:
 ```json
 {
   "analysis": {
@@ -225,12 +227,23 @@ Consumes `multipart/form-data`:
     ]
   },
   "savedToHistory": true,
-  "timestamp": "2026-07-25T16:30:00Z"
+  "timestamp": "2026-07-29T15:00:00Z"
 }
 ```
 
 ### `GET /api/health`
-Returns `{"status": "OK"}` to verify backend readiness.
+Returns system and downstream dependency reachability status:
+```json
+{
+  "status": "UP",
+  "service": "AI Resume Analyzer Backend",
+  "timestamp": "2026-07-29T15:00:00Z",
+  "dependencies": {
+    "supabase": "UP",
+    "gemini": "UP"
+  }
+}
+```
 
 ---
 
