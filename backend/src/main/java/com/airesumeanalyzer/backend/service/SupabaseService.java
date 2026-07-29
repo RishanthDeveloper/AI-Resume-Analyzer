@@ -1,5 +1,6 @@
 package com.airesumeanalyzer.backend.service;
 
+import com.airesumeanalyzer.backend.repository.HistoryRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,20 +17,15 @@ import java.util.Map;
 
 /**
  * Service to interface with Supabase REST API using the service_role key.
- * <p>
- * Saves user analysis history records directly to the `analysis_history` table in Supabase.
- * The service_role key is kept strictly on the backend and never exposed to the frontend.
+ * Implements HistoryRepository interface.
  */
 @Service
-public class SupabaseService {
+public class SupabaseService implements HistoryRepository {
 
     private static final Logger logger = LoggerFactory.getLogger(SupabaseService.class);
 
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
     @Value("${supabase.url:}")
     private String supabaseUrl;
@@ -37,15 +33,21 @@ public class SupabaseService {
     @Value("${supabase.service-key:}")
     private String supabaseServiceKey;
 
-    /**
-     * Saves an analysis history record to the Supabase `analysis_history` table.
-     *
-     * @param userId          Supabase user UUID
-     * @param resumeFilename  Name of the uploaded resume PDF
-     * @param jobDescription  Target job description
-     * @param atsScore        Extracted ATS score integer (0-100)
-     * @param analysisJson    Raw structured JSON analysis object
-     */
+    public SupabaseService() {
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
+        this.objectMapper = new ObjectMapper();
+    }
+
+    public SupabaseService(HttpClient httpClient, ObjectMapper objectMapper, String supabaseUrl, String supabaseServiceKey) {
+        this.httpClient = httpClient;
+        this.objectMapper = objectMapper;
+        this.supabaseUrl = supabaseUrl;
+        this.supabaseServiceKey = supabaseServiceKey;
+    }
+
+    @Override
     public boolean saveAnalysisHistory(String userId, String resumeFilename, String jobDescription, int atsScore, Object analysisJson) {
         if (supabaseUrl == null || supabaseUrl.isBlank() || supabaseServiceKey == null || supabaseServiceKey.isBlank()) {
             logger.warn("Supabase URL or Service Key is not configured. Skipping history persistence.");

@@ -266,13 +266,18 @@ analyzeBtn.addEventListener("click", async () => {
     formData.append("resume", state.file);
     formData.append("jobDescription", state.jobDescription);
     formData.append("apiKey", state.apiKey);
-    
-    if (state.currentUser?.id) {
-      formData.append("userId", state.currentUser.id);
+
+    const headers = {};
+    if (state.supabase) {
+      const { data: { session } } = await state.supabase.auth.getSession();
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
     }
 
     const response = await fetch(CONFIG.API_URL, {
       method: "POST",
+      headers: headers,
       body: formData,
     });
 

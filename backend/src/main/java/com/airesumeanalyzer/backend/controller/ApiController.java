@@ -1,155 +1,171 @@
 package com.airesumeanalyzer.backend.controller;
 
+import com.airesumeanalyzer.backend.dto.AnalysisResponseDto;
+import com.airesumeanalyzer.backend.dto.AnalyzeApiResponse;
+import com.airesumeanalyzer.backend.exception.RateLimitExceededException;
+import com.airesumeanalyzer.backend.repository.HistoryRepository;
 import com.airesumeanalyzer.backend.service.AnalysisService;
-import com.airesumeanalyzer.backend.service.SupabaseService;
+import com.airesumeanalyzer.backend.service.RateLimiterService;
+import com.airesumeanalyzer.backend.service.SupabaseAuthService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * REST controller exposing resume analysis and health check endpoints.
- * <p>
- * TODO: Replace or supplement production Vercel domain in CORS configuration once deployed.
- * Example production origin: "https://resume-analyzer-zero-trust.vercel.app"
+ * REST controller exposing resume analysis and dependency health check endpoints.
  */
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(
-        origins = {
-                "http://localhost:5500",
-                "http://127.0.0.1:5500",
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-                "http://localhost:8000",
-                "http://127.0.0.1:8000"
-                // TODO: Add your production Vercel frontend URL here, e.g.:
-                // "https://resume-analyzer-zero-trust.vercel.app"
-        },
-        allowedHeaders = "*",
-        methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.OPTIONS}
-)
+@Validated
 public class ApiController {
 
     private static final Logger logger = LoggerFactory.getLogger(ApiController.class);
 
     private final AnalysisService analysisService;
-    private final SupabaseService supabaseService;
+    private final HistoryRepository historyRepository;
+    private final SupabaseAuthService supabaseAuthService;
+    private final RateLimiterService rateLimiterService;
+    private final HttpClient httpClient;
 
-    public ApiController(AnalysisService analysisService, SupabaseService supabaseService) {
+    @Value("${supabase.url:}")
+    private String supabaseUrl;
+
+    public ApiController(
+            AnalysisService analysisService,
+            HistoryRepository historyRepository,
+            SupabaseAuthService supabaseAuthService,
+            RateLimiterService rateLimiterService
+    ) {
         this.analysisService = analysisService;
-        this.supabaseService = supabaseService;
+        this.historyRepository = historyRepository;
+        this.supabaseAuthService = supabaseAuthService;
+        this.rateLimiterService = rateLimiterService;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(3))
+                .build();
     }
 
     /**
      * POST /api/analyze
-     * <p>
-     * Consumes {@code multipart/form-data} containing:
-     * <ul>
-     *   <li>{@code resume} — PDF resume file (required)</li>
-     *   <li>{@code jobDescription} — target job description text (required)</li>
-     *   <li>{@code apiKey} — Gemini API key (required per-request)</li>
-     *   <li>{@code userId} — optional Supabase user UUID for history persistence</li>
-     * </ul>
-     *
-     * Returns structured JSON object containing all 5 analysis features.
+     * Consumes {@code multipart/form-data}.
+     * User authentication is verified exclusively via the {@code Authorization: Bearer <token>} header.
      */
     @PostMapping(value = "/analyze", consumes = "multipart/form-data")
-    public ResponseEntity<Map<String, Object>> analyze(
+    public ResponseEntity<AnalyzeApiResponse> analyze(
             @RequestParam("resume") MultipartFile resume,
-            @RequestParam("jobDescription") String jobDescription,
+            @RequestParam("jobDescription") @NotBlank(message = "Job description must not be empty.") @Size(max = 5000, message = "Job description exceeds maximum 5000 character limit.") String jobDescription,
             @RequestParam("apiKey") String apiKey,
-            @RequestParam(value = "userId", required = false) String userId
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            HttpServletRequest request
     ) throws IOException {
 
+        // Rate limiting check per IP
+        String clientIp = getClientIp(request);
+        if (!rateLimiterService.tryConsume("ip:" + clientIp)) {
+            throw new RateLimitExceededException("Rate limit exceeded for IP " + clientIp + ". Please wait before trying again.");
+        }
+
+        // Verify Bearer token server-side against Supabase
+        Optional<String> verifiedUserId = supabaseAuthService.verifyToken(authHeader);
+
+        if (verifiedUserId.isPresent()) {
+            String userId = verifiedUserId.get();
+            if (!rateLimiterService.tryConsume("user:" + userId)) {
+                throw new RateLimitExceededException("Rate limit exceeded for user. Please wait before trying again.");
+            }
+        }
+
         String filename = resume != null ? resume.getOriginalFilename() : "resume.pdf";
-        logger.info("Received analysis request for file: {}, userId present: {}", filename, userId != null && !userId.isBlank());
+        logger.info("Processing resume analysis for file: {}, user verified: {}", filename, verifiedUserId.isPresent());
 
         String resumeText = analysisService.extractResumeText(resume);
-        Map<String, Object> analysisResult = analysisService.analyzeResume(resumeText, jobDescription, apiKey);
+        AnalysisResponseDto analysisResult = analysisService.analyzeResume(resumeText, jobDescription, apiKey);
 
-        int atsScore = extractAtsScore(analysisResult);
+        int atsScore = (analysisResult.atsScore() != null) ? analysisResult.atsScore().score() : 75;
 
         boolean savedToHistory = false;
-        if (userId != null && !userId.isBlank()) {
-            savedToHistory = supabaseService.saveAnalysisHistory(userId, filename, jobDescription, atsScore, analysisResult);
+        if (verifiedUserId.isPresent()) {
+            savedToHistory = historyRepository.saveAnalysisHistory(
+                    verifiedUserId.get(),
+                    filename,
+                    jobDescription,
+                    atsScore,
+                    analysisResult
+            );
         }
 
-        Map<String, Object> responseBody = new LinkedHashMap<>();
-        responseBody.put("analysis", analysisResult);
-        responseBody.put("savedToHistory", savedToHistory);
-        responseBody.put("timestamp", Instant.now().toString());
+        AnalyzeApiResponse response = new AnalyzeApiResponse(
+                analysisResult,
+                savedToHistory,
+                Instant.now().toString()
+        );
 
-        return ResponseEntity.ok(responseBody);
+        return ResponseEntity.ok(response);
     }
 
+    /**
+     * GET /api/health
+     * Performs real reachability checks against external dependencies (Supabase, Gemini API).
+     */
     @GetMapping("/health")
-    public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(Map.of("status", "OK", "service", "AI Resume Analyzer Backend"));
-    }
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> healthMap = new LinkedHashMap<>();
+        healthMap.put("status", "UP");
+        healthMap.put("service", "AI Resume Analyzer Backend");
+        healthMap.put("timestamp", Instant.now().toString());
 
-    private int extractAtsScore(Map<String, Object> analysisResult) {
-        try {
-            if (analysisResult.containsKey("atsScore") && analysisResult.get("atsScore") instanceof Map) {
-                Map<?, ?> atsMap = (Map<?, ?>) analysisResult.get("atsScore");
-                if (atsMap.containsKey("score") && atsMap.get("score") instanceof Number) {
-                    return ((Number) atsMap.get("score")).intValue();
-                }
-            }
-            if (analysisResult.containsKey("jobMatching") && analysisResult.get("jobMatching") instanceof Map) {
-                Map<?, ?> matchMap = (Map<?, ?>) analysisResult.get("jobMatching");
-                if (matchMap.containsKey("matchPercentage") && matchMap.get("matchPercentage") instanceof Number) {
-                    return ((Number) matchMap.get("matchPercentage")).intValue();
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("Could not extract ATS score integer for history summary", e);
+        boolean supabaseUp = checkUrlReachability(supabaseUrl != null && !supabaseUrl.isBlank() ? supabaseUrl : "https://supabase.com");
+        boolean geminiUp = checkUrlReachability("https://generativelanguage.googleapis.com");
+
+        healthMap.put("dependencies", Map.of(
+                "supabase", supabaseUp ? "UP" : "DOWN",
+                "gemini", geminiUp ? "UP" : "DOWN"
+        ));
+
+        if (!supabaseUp || !geminiUp) {
+            healthMap.put("status", "DEGRADED");
         }
-        return 75;
+
+        return ResponseEntity.ok(healthMap);
     }
 
-    // -------------------------------------------------------------------
-    // Exception handling
-    // -------------------------------------------------------------------
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException ex) {
-        return errorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+    private boolean checkUrlReachability(String urlString) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(urlString))
+                    .timeout(Duration.ofSeconds(3))
+                    .GET()
+                    .build();
+            HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            return response.statusCode() < 500;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<Map<String, Object>> handleFileTooLarge(MaxUploadSizeExceededException ex) {
-        return errorResponse(HttpStatus.PAYLOAD_TOO_LARGE, "Uploaded file exceeds the 10MB limit.");
-    }
-
-    @ExceptionHandler(IOException.class)
-    public ResponseEntity<Map<String, Object>> handleIOException(IOException ex) {
-        return errorResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
-    }
-
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<Map<String, Object>> handleUpstreamFailure(IllegalStateException ex) {
-        return errorResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
-    }
-
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
-        return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error: " + ex.getMessage());
-    }
-
-    private ResponseEntity<Map<String, Object>> errorResponse(HttpStatus status, String message) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("message", message);
-        body.put("status", status.value());
-        body.put("timestamp", Instant.now().toString());
-        return ResponseEntity.status(status).body(body);
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }
