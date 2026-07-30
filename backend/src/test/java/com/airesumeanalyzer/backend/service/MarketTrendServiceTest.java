@@ -2,7 +2,6 @@ package com.airesumeanalyzer.backend.service;
 
 import com.airesumeanalyzer.backend.dto.MarketTrendResponseDto;
 import com.airesumeanalyzer.backend.exception.MarketDataUnavailableException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,24 +22,24 @@ class MarketTrendServiceTest {
     @BeforeEach
     void setUp() {
         mockHttpClient = mock(HttpClient.class);
-        marketTrendService = new MarketTrendService(mockHttpClient, new ObjectMapper());
+        marketTrendService = new MarketTrendService(mockHttpClient);
     }
 
     @Test
-    void fetchMarketTrends_EmptyRole_ThrowsIllegalArgumentException() {
-        assertThrows(IllegalArgumentException.class, () -> marketTrendService.fetchMarketTrends("resume text", ""));
+    void analyzeMarketTrends_EmptyRole_ThrowsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () -> marketTrendService.analyzeMarketTrends("", "resume text"));
     }
 
     @Test
-    void fetchMarketTrends_ApiFailureStatus_ThrowsMarketDataUnavailableException() throws Exception {
+    void analyzeMarketTrends_ApiFailureStatus_ThrowsMarketDataUnavailableException() throws Exception {
         when(mockHttpResponse.statusCode()).thenReturn(500);
         doReturn(mockHttpResponse).when(mockHttpClient).send(any(), any());
 
-        assertThrows(MarketDataUnavailableException.class, () -> marketTrendService.fetchMarketTrends("resume text", "Developer"));
+        assertThrows(MarketDataUnavailableException.class, () -> marketTrendService.analyzeMarketTrends("Developer", "resume text"));
     }
 
     @Test
-    void fetchMarketTrends_ValidJsonResponse_ReturnsPopulatedDto() throws Exception {
+    void analyzeMarketTrends_ValidJsonResponse_ReturnsPopulatedDto() throws Exception {
         String sampleJson = """
                 {
                   "jobs": [
@@ -61,11 +60,11 @@ class MarketTrendServiceTest {
         when(mockHttpResponse.body()).thenReturn(sampleJson);
         doReturn(mockHttpResponse).when(mockHttpClient).send(any(), any());
 
-        MarketTrendResponseDto dto = marketTrendService.fetchMarketTrends("I have Java experience.", "Java Developer");
+        MarketTrendResponseDto dto = marketTrendService.analyzeMarketTrends("Java Developer", "I have Java experience.");
 
         assertNotNull(dto);
-        assertEquals("Java Developer", dto.targetRole());
-        assertEquals(1, dto.totalPostingsAnalyzed());
+        assertEquals("Java Developer", dto.role());
+        assertEquals(1, dto.jobsAnalyzed());
         assertFalse(dto.trendingSkills().isEmpty());
     }
 }

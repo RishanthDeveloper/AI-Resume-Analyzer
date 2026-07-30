@@ -128,26 +128,30 @@ public class ApiController {
 
     /**
      * POST /api/market-trends
-     * Consumes {@code multipart/form-data}.
-     * Queries Remotive API for live active job postings matching the target role,
-     * mines real-time skill demand, and compares against the uploaded resume.
+     * Live Job Market Skill Radar. Consumes {@code multipart/form-data}.
+     * Pulls CURRENTLY OPEN postings for the given target role from a live public jobs feed,
+     * mines which skills are actually trending in demand right now, and cross-references
+     * them against the uploaded resume — solving the real-world problem of resumes being
+     * tailored to a single stale job posting instead of the live market.
      */
     @PostMapping(value = "/market-trends", consumes = "multipart/form-data")
-    public ResponseEntity<MarketTrendResponseDto> getMarketTrends(
+    public ResponseEntity<MarketTrendResponseDto> marketTrends(
             @RequestParam("resume") MultipartFile resume,
-            @RequestParam("role") @NotBlank(message = "Target role must not be empty.") String role,
+            @RequestParam("role") @NotBlank(message = "Target role must not be empty.") @Size(max = 120, message = "Target role exceeds maximum 120 character limit.") String role,
             HttpServletRequest request
     ) throws IOException {
 
         String clientIp = getClientIp(request);
-        if (!rateLimiterService.tryConsume("ip:market:" + clientIp)) {
-            throw new RateLimitExceededException("Rate limit exceeded for market trend scanning. Please wait before trying again.");
+        if (!rateLimiterService.tryConsume("ip:" + clientIp)) {
+            throw new RateLimitExceededException("Rate limit exceeded for IP " + clientIp + ". Please wait before trying again.");
         }
 
-        String resumeText = analysisService.extractResumeText(resume);
-        MarketTrendResponseDto trendData = marketTrendService.fetchMarketTrends(resumeText, role);
+        logger.info("Running live market skill radar for role: {}", role);
 
-        return ResponseEntity.ok(trendData);
+        String resumeText = analysisService.extractResumeText(resume);
+        MarketTrendResponseDto result = marketTrendService.analyzeMarketTrends(role, resumeText);
+
+        return ResponseEntity.ok(result);
     }
 
     /**
