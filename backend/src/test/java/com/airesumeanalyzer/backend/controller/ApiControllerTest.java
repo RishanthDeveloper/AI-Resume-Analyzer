@@ -4,6 +4,7 @@ import com.airesumeanalyzer.backend.dto.AnalysisResponseDto;
 import com.airesumeanalyzer.backend.dto.AnalysisResponseDto.*;
 import com.airesumeanalyzer.backend.repository.HistoryRepository;
 import com.airesumeanalyzer.backend.service.AnalysisService;
+import com.airesumeanalyzer.backend.service.MarketTrendService;
 import com.airesumeanalyzer.backend.service.RateLimiterService;
 import com.airesumeanalyzer.backend.service.SupabaseAuthService;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,9 @@ class ApiControllerTest {
 
     @MockBean
     private RateLimiterService rateLimiterService;
+
+    @MockBean
+    private MarketTrendService marketTrendService;
 
     private AnalysisResponseDto sampleAnalysisDto;
 

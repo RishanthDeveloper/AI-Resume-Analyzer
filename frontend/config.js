@@ -9,12 +9,14 @@
   );
 
   const defaultLocalApi = "http://localhost:8000/api/analyze";
-  // Production fallback API endpoint (Render backend)
   const defaultProdApi = "https://resume-analyzer-backend.onrender.com/api/analyze";
 
+  const apiUrl = window.ENV_API_URL || (isLocalhost ? defaultLocalApi : defaultProdApi);
+  const marketUrl = apiUrl.replace("/analyze", "/market-trends");
+
   window.APP_CONFIG = {
-    // Dynamic API URL resolution
-    API_URL: window.ENV_API_URL || (isLocalhost ? defaultLocalApi : defaultProdApi),
+    API_URL: apiUrl,
+    MARKET_TRENDS_URL: window.ENV_MARKET_TRENDS_URL || marketUrl,
 
     // Supabase Project Credentials (safe for client exposure)
     SUPABASE_URL: window.ENV_SUPABASE_URL || "https://your-supabase-project.supabase.co",

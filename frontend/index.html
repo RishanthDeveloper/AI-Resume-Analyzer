@@ -68,7 +68,7 @@
       <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
         AI Resume Analyzer <br/>
         <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
-          Placement & Interview Intelligence
+          Placement &amp; Interview Intelligence
         </span>
       </h1>
       <p class="text-sm md:text-base text-slate-400 mt-4 leading-relaxed">
@@ -82,6 +82,7 @@
         <span class="pill">✍️ Line Rewrites</span>
         <span class="pill">🎯 Job Fit %</span>
         <span class="pill">🎓 Placement Q&amp;A</span>
+        <span class="pill border-rose-500/30 text-rose-300 bg-rose-500/10">📡 Live Job Market Radar</span>
       </div>
     </header>
 
@@ -135,7 +136,7 @@
               <span class="icon-badge icon-badge--cyan">📘</span>
               <div>
                 <h3 class="text-base font-semibold text-white">Target Job Description</h3>
-                <p class="text-xs text-slate-400">Paste responsibilities & requirements</p>
+                <p class="text-xs text-slate-400">Paste responsibilities &amp; requirements</p>
               </div>
             </div>
             <button id="loadExampleBtn" type="button"
@@ -186,7 +187,7 @@
 
     </div>
 
-    <!-- Submit Action Area -->
+    <!-- Submit Action Area for AI Analysis -->
     <div class="max-w-xl mx-auto mt-8">
       <button id="analyzeBtn" type="button" disabled class="analyze-btn w-full text-center">
         <span id="analyzeBtnLabel">✨ Analyze Resume &amp; Generate Interview Prep 🚀</span>
@@ -195,7 +196,82 @@
       <div id="errorText" class="mt-3 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs text-center hidden"></div>
     </div>
 
-    <!-- Interactive Results Dashboard -->
+    <!-- Live Job Market Skill Radar Input Section -->
+    <section class="card p-6 mt-10 border border-rose-500/20 bg-gradient-to-r from-[#101215] via-[#161218] to-[#101215]">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="icon-badge icon-badge--rose">📡</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-semibold text-white">Live Job Market Skill Radar</h3>
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 border border-rose-500/30 text-rose-400">
+                <span class="live-dot"></span> REAL-TIME DATA
+              </span>
+            </div>
+            <p class="text-xs text-slate-400 mt-0.5">Mines active open postings from Remotive API &amp; cross-references against your uploaded resume</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+          <div class="input-shell flex-1 sm:w-64">
+            <input id="marketRoleInput" type="text" placeholder="e.g. Backend Developer"
+              class="bg-transparent w-full text-sm text-slate-100 placeholder:text-slate-600 outline-none" />
+          </div>
+          <button id="scanMarketBtn" type="button" disabled class="market-scan-btn whitespace-nowrap">
+            <span id="scanMarketBtnLabel">📡 Scan Live Market</span>
+          </button>
+        </div>
+      </div>
+      <div id="marketErrorText" class="mt-3 p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-xs text-center hidden"></div>
+    </section>
+
+    <!-- Live Market Results Dashboard -->
+    <section id="marketResultsContainer" class="mt-8 hidden space-y-6">
+      <div class="card p-6 border border-rose-500/30">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4 mb-6">
+          <div class="flex items-center gap-2">
+            <span class="live-dot"></span>
+            <h3 class="text-xl font-bold text-white tracking-tight">
+              Live Market Skill Demand — <span id="marketRoleBadge" class="text-rose-400">Software Engineer</span>
+            </h3>
+          </div>
+          <div class="text-xs font-mono bg-white/5 border border-white/10 rounded-full px-3 py-1 text-slate-300">
+            Analyzed <span id="totalPostingsBadge" class="text-rose-400 font-bold">0</span> Live Remotive Postings
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Trending Skills in Live Market -->
+          <div>
+            <h4 class="text-xs font-bold text-slate-300 mb-3 tracking-wide flex items-center gap-1.5">
+              <span>📊</span> TOP TRENDING SKILLS IN DEMAND
+            </h4>
+            <div id="trendingSkillsList" class="space-y-3"></div>
+          </div>
+
+          <!-- Top Missing High-Demand Skills & Sample Postings -->
+          <div class="space-y-6">
+            <div class="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4">
+              <h4 class="text-xs font-bold text-rose-400 mb-2.5 tracking-wide flex items-center gap-1.5">
+                <span>🚨</span> MISSING HIGH-DEMAND MARKET SKILLS
+              </h4>
+              <p class="text-xs text-slate-400 mb-3">Skills trending heavily across live open roles that are missing from your resume:</p>
+              <div id="missingMarketSkillsBadges" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- Live Sample Postings -->
+            <div>
+              <h4 class="text-xs font-bold text-slate-300 mb-3 tracking-wide flex items-center gap-1.5">
+                <span>💼</span> SAMPLE LIVE ACTIVE POSTINGS
+              </h4>
+              <div id="samplePostingsGrid" class="space-y-2.5"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive AI Results Dashboard -->
     <section id="resultsContainer" class="mt-12 hidden space-y-8">
       
       <!-- Results Header -->

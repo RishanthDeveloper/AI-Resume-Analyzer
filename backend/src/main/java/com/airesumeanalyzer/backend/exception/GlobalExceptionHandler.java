@@ -60,6 +60,11 @@ public class GlobalExceptionHandler {
         return errorResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
     }
 
+    @ExceptionHandler(MarketDataUnavailableException.class)
+    public ResponseEntity<Map<String, Object>> handleMarketDataUnavailable(MarketDataUnavailableException ex) {
+        return errorResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
+    }
+
     @ExceptionHandler(HistoryPersistenceException.class)
     public ResponseEntity<Map<String, Object>> handleHistoryException(HistoryPersistenceException ex) {
         return errorResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());

@@ -2,9 +2,11 @@ package com.airesumeanalyzer.backend.controller;
 
 import com.airesumeanalyzer.backend.dto.AnalysisResponseDto;
 import com.airesumeanalyzer.backend.dto.AnalyzeApiResponse;
+import com.airesumeanalyzer.backend.dto.MarketTrendResponseDto;
 import com.airesumeanalyzer.backend.exception.RateLimitExceededException;
 import com.airesumeanalyzer.backend.repository.HistoryRepository;
 import com.airesumeanalyzer.backend.service.AnalysisService;
+import com.airesumeanalyzer.backend.service.MarketTrendService;
 import com.airesumeanalyzer.backend.service.RateLimiterService;
 import com.airesumeanalyzer.backend.service.SupabaseAuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * REST controller exposing resume analysis and dependency health check endpoints.
+ * REST controller exposing resume analysis, market trend radar, and dependency health check endpoints.
  */
 @RestController
 @RequestMapping("/api")
@@ -43,6 +45,7 @@ public class ApiController {
     private final HistoryRepository historyRepository;
     private final SupabaseAuthService supabaseAuthService;
     private final RateLimiterService rateLimiterService;
+    private final MarketTrendService marketTrendService;
     private final HttpClient httpClient;
 
     @Value("${supabase.url:}")
@@ -52,12 +55,14 @@ public class ApiController {
             AnalysisService analysisService,
             HistoryRepository historyRepository,
             SupabaseAuthService supabaseAuthService,
-            RateLimiterService rateLimiterService
+            RateLimiterService rateLimiterService,
+            MarketTrendService marketTrendService
     ) {
         this.analysisService = analysisService;
         this.historyRepository = historyRepository;
         this.supabaseAuthService = supabaseAuthService;
         this.rateLimiterService = rateLimiterService;
+        this.marketTrendService = marketTrendService;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(3))
                 .build();
@@ -119,6 +124,30 @@ public class ApiController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * POST /api/market-trends
+     * Consumes {@code multipart/form-data}.
+     * Queries Remotive API for live active job postings matching the target role,
+     * mines real-time skill demand, and compares against the uploaded resume.
+     */
+    @PostMapping(value = "/market-trends", consumes = "multipart/form-data")
+    public ResponseEntity<MarketTrendResponseDto> getMarketTrends(
+            @RequestParam("resume") MultipartFile resume,
+            @RequestParam("role") @NotBlank(message = "Target role must not be empty.") String role,
+            HttpServletRequest request
+    ) throws IOException {
+
+        String clientIp = getClientIp(request);
+        if (!rateLimiterService.tryConsume("ip:market:" + clientIp)) {
+            throw new RateLimitExceededException("Rate limit exceeded for market trend scanning. Please wait before trying again.");
+        }
+
+        String resumeText = analysisService.extractResumeText(resume);
+        MarketTrendResponseDto trendData = marketTrendService.fetchMarketTrends(resumeText, role);
+
+        return ResponseEntity.ok(trendData);
     }
 
     /**

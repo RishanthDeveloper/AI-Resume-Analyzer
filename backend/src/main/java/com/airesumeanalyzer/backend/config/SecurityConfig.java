@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/analyze", "/api/health", "/error").permitAll()
+                        .requestMatchers("/api/analyze", "/api/health", "/api/market-trends", "/error").permitAll()
                         .anyRequest().permitAll()
                 )
                 .headers(headers -> headers
@@ -42,7 +42,7 @@ public class SecurityConfig {
                                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                                         "font-src 'self' https://fonts.gstatic.com; " +
                                         "img-src 'self' data:; " +
-                                        "connect-src 'self' https://*.supabase.co https://generativelanguage.googleapis.com;"))
+                                        "connect-src 'self' https://*.supabase.co https://generativelanguage.googleapis.com https://remotive.com;"))
                         .contentTypeOptions(Customizer.withDefaults())
                         .frameOptions(frame -> frame.deny())
                         .httpStrictTransportSecurity(hsts -> hsts

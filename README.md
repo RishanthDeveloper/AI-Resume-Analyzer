@@ -41,7 +41,7 @@ An end-to-end AI-powered resume analysis and placement interview preparation app
 |                                        |                                          |
 |                                        v                                          |
 |  +-------------------------------------+---------------------------------------+  |
-|  | ApiController (/api/analyze, /api/health)                                   |  |
+|  | ApiController (/api/analyze, /api/market-trends, /api/health)              |  |
 |  +-------------------------------------+---------------------------------------+  |
 |                                        |                                          |
 |  +-------------------------------------+---------------------------------------+  |
@@ -49,18 +49,19 @@ An end-to-end AI-powered resume analysis and placement interview preparation app
 |  | - PdfTextExtractor (5s Timeout, PDFBox 3.x)                                 |  |
 |  | - GeminiPromptBuilder (XML Boundary Defenses)                                 |  |
 |  | - GeminiClient (REST Client to Google Gemini 2.5 Flash)                      |  |
+|  | - MarketTrendService (Remotive Public Jobs API Integration)                   |  |
 |  | - AnalysisResponseValidator (DTO Schema Enforcement)                         |  |
 |  | - SupabaseService (HistoryRepository Implementation via service_role key)    |  |
 |  +-------------------------------------+---------------------------------------+  |
 +----------------------------------------+------------------------------------------+
                                          |
-                       +-----------------+-----------------+
-                       |                                   |
-                       v                                   v
-+----------------------+------------------+   +------------+------------------------+
-|       GOOGLE GEMINI 2.5 FLASH API       |   |       SUPABASE POSTGRESQL DB       |
-| - generateContent REST Endpoint         |   | - analysis_history Table (RLS)          |
-+-----------------------------------------+   +-------------------------------------+
+               +-------------------------+-------------------------+
+               |                         |                         |
+               v                         v                         v
++--------------+----------+   +----------+-------------+   +-------+---------------+
+|   GOOGLE GEMINI 2.5 API |   |  SUPABASE POSTGRES DB  |   | REMOTIVE JOBS API     |
+| - generateContent        |   | - analysis_history (RLS)|   | - live job market data|
++-------------------------+   +------------------------+   +-----------------------+
 ```
 
 ---
@@ -68,6 +69,7 @@ An end-to-end AI-powered resume analysis and placement interview preparation app
 ## ⚡ Key Features
 
 - **📊 ATS Compatibility Score (0-100)**: Evaluates formatting, keyword density, and section completeness.
+- **📡 Live Job Market Skill Radar**: Mines real-time active job postings from the free Remotive API for a target role and cross-references in-demand skills against your resume without using LLM tokens.
 - **🔍 Skill Gap Analysis**: Identifies exact technical and domain skills present vs. missing relative to the job posting.
 - **✍️ Line-Level Resume Suggestions**: Gives concrete line-by-line rewrite suggestions with explanations to improve resume impact.
 - **🎯 Job Fit & Match Score**: Highlights candidate strengths and gap areas against the job requirements.
@@ -139,6 +141,7 @@ The Spring Boot backend will start on **`http://localhost:8000`**. You can verif
 ```javascript
 window.APP_CONFIG = {
   API_URL: "http://localhost:8000/api/analyze",
+  MARKET_TRENDS_URL: "http://localhost:8000/api/market-trends",
   SUPABASE_URL: "https://your-project.supabase.co",
   SUPABASE_ANON_KEY: "your-supabase-anon-key"
 };
@@ -228,6 +231,44 @@ Consumes `multipart/form-data`:
   },
   "savedToHistory": true,
   "timestamp": "2026-07-29T15:00:00Z"
+}
+```
+
+### `POST /api/market-trends`
+Mines active live job postings for a target role using the free [Remotive Public Remote Jobs API](https://remotive.com/api/remote-jobs) (no API key required), extracts real-time in-demand skills, and cross-references them against the uploaded resume.
+
+Consumes `multipart/form-data`:
+- `resume` (PDF file, max 10MB)
+- `role` (String, required, e.g., "Backend Developer", "Software Engineer")
+
+**Response Structure (`200 OK`)**:
+```json
+{
+  "targetRole": "Backend Developer",
+  "totalPostingsAnalyzed": 30,
+  "trendingSkills": [
+    {
+      "skill": "Java",
+      "count": 22,
+      "percentage": 73.3,
+      "presentInResume": true
+    },
+    {
+      "skill": "Docker",
+      "count": 18,
+      "percentage": 60.0,
+      "presentInResume": false
+    }
+  ],
+  "topMissingHighDemandSkills": ["Docker", "Kubernetes", "Redis"],
+  "samplePostings": [
+    {
+      "title": "Senior Backend Developer",
+      "companyName": "Acme Corp",
+      "url": "https://remotive.com/remote-jobs/software-dev/senior-backend-developer-12345",
+      "publicationDate": "2026-07-29"
+    }
+  ]
 }
 ```
 
